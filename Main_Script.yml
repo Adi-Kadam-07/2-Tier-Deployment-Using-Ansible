@@ -1,0 +1,67 @@
+# deployment of 2-Tier app using Ansible
+
+---
+# App Server Play :
+
+- name: Installation and deployment on AppServer
+  hosts: AppServer
+  become: yes
+
+  vars:
+    packages:
+      - nginx
+      - php
+      - php-fpm
+    services:
+      - nginx
+      - php-fpm
+    web_file_path: /usr/share/nginx/html/index.php
+
+  tasks:
+    - name: Install nginx, php, php-fpm
+      ansible.builtin.dnf:
+        name: "{{ packages }}"
+        state: present
+
+    - name: Start and enable nginx and php-fpm
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop: "{{ services }}"
+
+    - name: Deploy PHP application
+      ansible.builtin.copy:
+        dest: "{{ web_file_path }}"
+        content: |
+          <?php
+          phpinfo();
+          ?>
+
+
+# Database Server Play :
+
+- name: Installation and configuration on DbServer
+  hosts: DbServer
+  become: yes
+
+  vars:
+    db_pkg: mariadb105-server
+    db_service: mariadb
+    db_name: Project
+
+  tasks:
+    - name: Install MariaDB
+      ansible.builtin.dnf:
+        name: "{{ db_pkg }}"
+        state: present
+
+    - name: Start and enable MariaDB
+      ansible.builtin.systemd:
+        name: "{{ db_service }}"
+        state: started
+        enabled: yes
+
+    - name: Create database
+      ansible.builtin.shell: |
+        mysql -u root -e "CREATE DATABASE IF NOT EXISTS {{ db_name }};"
